@@ -50,6 +50,7 @@ __all__ = (
     "PSA",
     "SCDown",
     "TorchVision",
+    "C3k2Enhanced",
 )
 
 
