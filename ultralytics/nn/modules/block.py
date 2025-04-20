@@ -1074,12 +1074,37 @@ class C3f(nn.Module):
         return self.cv3(torch.cat(y, 1))
 
 
-class C3k2(C2f):
-    """Faster Implementation of CSP Bottleneck with 2 convolutions."""
+class AttentionBlock(nn.Module):
+    """Channel Attention Block for better feature emphasis."""
+    
+    def __init__(self, c, reduction=16):
+        super(AttentionBlock, self).__init__()
+        self.fc1 = nn.Conv2d(c, c // reduction, kernel_size=1, stride=1, padding=0)
+        self.fc2 = nn.Conv2d(c // reduction, c, kernel_size=1, stride=1, padding=0)
+        self.sigmoid = nn.Sigmoid()
 
-    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+    def forward(self, x):
+        return x * self.sigmoid(self.fc2(F.relu(self.fc1(x))))  # Apply attention
+
+class MultiScaleConv(nn.Module):
+    """A multi-scale convolution block with dilated convolutions."""
+    
+    def __init__(self, in_channels, out_channels):
+        super(MultiScaleConv, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)
+        self.conv3 = nn.Conv2d(in_channels, out_channels, kernel_size=7, padding=3)
+        self.dilated_conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=6, dilation=2)
+
+    def forward(self, x):
+        return F.relu(self.conv1(x) + self.conv2(x) + self.conv3(x) + self.dilated_conv(x))
+
+class C3k2Enhanced(C2f):
+    """Complex and Enhanced C3k2 block with multi-scale convolutions and attention."""
+
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True, attention=True, multi_scale=True):
         """
-        Initialize C3k2 module.
+        Initialize the enhanced C3k2 module.
 
         Args:
             c1 (int): Input channels.
@@ -1089,13 +1114,39 @@ class C3k2(C2f):
             e (float): Expansion ratio.
             g (int): Groups for convolutions.
             shortcut (bool): Whether to use shortcut connections.
+            attention (bool): Whether to apply channel attention.
+            multi_scale (bool): Whether to use multi-scale convolutions.
         """
         super().__init__(c1, c2, n, shortcut, g, e)
+        
+        self.attention = attention
+        self.multi_scale = multi_scale
+        
         self.m = nn.ModuleList(
-            C3k(self.c, self.c, 2, shortcut, g) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
+            self._create_block(c3k, n) for _ in range(n)
         )
 
+    def _create_block(self, c3k, n):
+        """Create the enhanced block with multi-scale and attention."""
+        block = C3k(self.c, self.c, 2, self.shortcut, self.g) if c3k else Bottleneck(self.c, self.c, self.shortcut, self.g)
+        
+        # If multi-scale convolutions are enabled
+        if self.multi_scale:
+            block = nn.Sequential(
+                block,
+                MultiScaleConv(self.c, self.c),  # Add multi-scale convolution
+            )
+        
+        # Add channel attention if enabled
+        if self.attention:
+            block = nn.Sequential(
+                block,
+                AttentionBlock(self.c)  # Apply channel attention
+            )
+            
+        return block
 
+        
 class C3k(C3):
     """C3k is a CSP bottleneck module with customizable kernel sizes for feature extraction in neural networks."""
 
