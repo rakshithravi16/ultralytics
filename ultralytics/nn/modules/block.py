@@ -50,7 +50,6 @@ __all__ = (
     "PSA",
     "SCDown",
     "TorchVision",
-    "C3k2Enhanced",
 )
 
 
@@ -1100,7 +1099,7 @@ class MultiScaleConv(nn.Module):
     def forward(self, x):
         return F.relu(self.conv1(x) + self.conv2(x) + self.conv3(x) + self.dilated_conv(x))
 
-class C3k2Enhanced(C2f):
+class C3k2(C2f):
     """Complex and Enhanced C3k2 block with multi-scale convolutions and attention."""
 
     def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True, attention=True, multi_scale=True):
