@@ -1117,6 +1117,7 @@ class C3k2(C2f):
             attention (bool): Whether to apply channel attention.
             multi_scale (bool): Whether to use multi-scale convolutions.
         """
+        print("Modified C3k2 Block")
         super().__init__(c1, c2, n, shortcut, g, e)
         
         self.attention = attention
